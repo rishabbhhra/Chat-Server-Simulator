@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Server Simulator Using C</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              black: '#000000',
+              darker: '#09090b',
+              dark: '#121214',
+              surface: '#18181b',
+              borderDark: '#27272a',
+              borderLight: '#e4e4e7',
+              lightSurface: '#f4f4f5',
+              lighter: '#fafafa',
+              white: '#ffffff'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Monochrome premium scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    .dark ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+    .font-mono-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body class="bg-brand-lighter dark:bg-brand-black text-brand-darker dark:text-brand-lighter min-h-screen flex flex-col font-sans antialiased transition-colors duration-200">
+
+  <!-- ==================== TOP ENTERPRISE HEADER ==================== -->
+  <header class="bg-white dark:bg-brand-darker border-b border-brand-borderLight dark:border-brand-borderDark px-5 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+    <div class="flex items-center space-x-3.5">
+      <div class="w-8 h-8 rounded-md bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold tracking-tighter text-sm shadow">
+        C
+      </div>
+      <div>
+        <!-- Title explicitly requested by user -->
+        <h1 class="font-bold text-sm tracking-tight flex items-center gap-2 text-black dark:text-white">
+          Chat Server Simulator Using C
+          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-neutral-600 dark:text-neutral-400 border border-brand-borderLight dark:border-brand-borderDark">POSIX Socket</span>
+        </h1>
+        <p class="text-[11px] text-neutral-500 font-mono flex items-center gap-2">
+          <span>Multi-Client Engine</span>
+          <span>•</span>
+          <span>select() Multiplexing</span>
+          <span>•</span>
+          <span>Port 8080</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Header Right Controls -->
+    <div class="flex items-center space-x-2.5 text-xs">
+      
+      <!-- Live Server Status Indicator -->
+      <div id="server-status-pill" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md border border-brand-borderLight dark:border-brand-borderDark bg-white dark:bg-brand-dark font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="server-status-text">Server: Online</span>
+      </div>
+
+      <!-- Real-Time Ping -->
+      <div class="hidden sm:flex items-center space-x-1 px-2.5 py-1 rounded-md border border-brand-borderLight dark:border-brand-borderDark bg-brand-lightSurface/60 dark:bg-brand-surface/60 font-mono text-[11px] text-neutral-600 dark:text-neutral-400" title="C Socket Latency">
+        <i class="fa-solid fa-bolt text-[10px]"></i>
+        <span id="ping-text">9 ms</span>
+      </div>
+
+      <!-- Admin Broadcast Button -->
+      <button onclick="openBroadcastModal()" class="px-2.5 py-1 rounded-md border border-brand-borderLight dark:border-brand-borderDark hover:bg-neutral-100 dark:hover:bg-neutral-800 transition flex items-center gap-1.5 font-medium">
+        <i class="fa-solid fa-bullhorn text-[11px]"></i> Broadcast
+      </button>
+
+      <!-- Telemetry Button -->
+      <button onclick="toggleStatsModal()" class="px-2.5 py-1 rounded-md border border-brand-borderLight dark:border-brand-borderDark hover:bg-neutral-100 dark:hover:bg-neutral-800 transition flex items-center gap-1.5 font-medium">
+        <i class="fa-solid fa-chart-simple text-[11px]"></i> Telemetry
+      </button>
+
+      <!-- Dual Client Split Toggle -->
+      <button onclick="toggleDualView()" id="split-view-btn" class="px-2.5 py-1 rounded-md border border-brand-borderLight dark:border-brand-borderDark hover:bg-neutral-100 dark:hover:bg-neutral-800 transition flex items-center gap-1.5 font-medium">
+        <i class="fa-solid fa-table-columns text-[11px]"></i> <span id="split-btn-text">Single View</span>
+      </button>
+
+      <!-- Theme Switcher (Dark / Light Mode) -->
+      <button onclick="toggleTheme()" class="w-8 h-8 rounded-md border border-brand-borderLight dark:border-brand-borderDark flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition" title="Toggle Light/Dark Theme">
+        <i class="fa-solid fa-moon hidden dark:inline text-white"></i>
+        <i class="fa-solid fa-sun inline dark:hidden text-black"></i>
+      </button>
+
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CHAT CONTAINER ==================== -->
+  <main class="flex-1 p-3 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-hidden" id="clients-container">
+    
+    <!-- ==================== CLIENT PANEL 1 (Rishabh) ==================== -->
+    <div class="client-panel flex flex-col bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl overflow-hidden shadow-sm" id="panel-1">
+      
+      <!-- Panel Header Bar -->
+      <div class="bg-brand-lightSurface/80 dark:bg-brand-surface/80 px-3.5 py-2 border-b border-brand-borderLight dark:border-brand-borderDark flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-6 h-6 rounded-full bg-black text-white dark:bg-white dark:text-black flex items-center justify-center font-bold text-[10px]">
+            R
+          </div>
+          <div>
+            <span class="font-bold text-black dark:text-white" id="client1-label">Client 1 (Rishabh)</span>
+            <span class="ml-1 text-[10px] font-mono text-neutral-500" id="client1-status-pill">• Online</span>
+          </div>
+          <span class="px-2 py-0.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-mono font-bold text-[10px]" id="client1-room-badge">#coding</span>
+        </div>
+
+        <!-- Utility Actions -->
+        <div class="flex items-center space-x-1">
+          <!-- Search filter input -->
+          <div class="relative">
+            <input type="text" id="client1-search" oninput="filterMessages(1)" placeholder="Search in room..." 
+              class="w-24 focus:w-36 transition-all bg-white dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded px-2 py-0.5 text-[11px] placeholder-neutral-400 focus:outline-none focus:border-black dark:focus:border-white">
+          </div>
+          <button onclick="openDirectMsgModal(1)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Direct Message (PM)">
+            <i class="fa-solid fa-paper-plane text-[11px]"></i>
+          </button>
+          <button onclick="exportChat(1)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Export transcript (.txt)">
+            <i class="fa-solid fa-download text-[11px]"></i>
+          </button>
+          <button onclick="clearChat(1)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Clear screen">
+            <i class="fa-solid fa-trash-can text-[11px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel Body (Sidebar + Message Stream) -->
+      <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <div class="w-44 bg-brand-lighter/70 dark:bg-brand-black/60 border-r border-brand-borderLight dark:border-brand-borderDark p-2.5 flex flex-col justify-between text-xs">
+          <div>
+            <!-- Rooms List -->
+            <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5 px-1 flex justify-between items-center font-bold">
+              <span>Rooms</span>
+              <button onclick="promptJoinRoom(1)" class="hover:text-black dark:hover:text-white" title="Join or Create Room">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+              </button>
+            </div>
+            <div class="space-y-1" id="client1-room-list">
+              <button onclick="switchRoom(1, 'general')" id="c1-btn-general" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># general</span>
+              </button>
+              <button onclick="switchRoom(1, 'coding')" id="c1-btn-coding" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-bold bg-black text-white dark:bg-white dark:text-black transition flex items-center justify-between shadow-sm">
+                <span># coding</span>
+                <i class="fa-solid fa-chevron-right text-[9px]"></i>
+              </button>
+              <button onclick="switchRoom(1, 'gaming')" id="c1-btn-gaming" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># gaming</span>
+              </button>
+              <button onclick="switchRoom(1, 'random')" id="c1-btn-random" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># random</span>
+              </button>
+            </div>
+
+            <!-- Direct Message / Members List -->
+            <div class="mt-4 pt-2.5 border-t border-brand-borderLight dark:border-brand-borderDark">
+              <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5 px-1 font-bold">Members</div>
+              <div class="space-y-1">
+                <button onclick="quickDm(1, 'Rahul')" class="w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span class="font-medium">Rahul</span>
+                  </div>
+                  <i class="fa-solid fa-comment-dots text-[10px] text-neutral-400"></i>
+                </button>
+                <button onclick="quickDm(1, 'admin')" class="w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                    <span class="font-medium">admin</span>
+                  </div>
+                  <span class="text-[9px] font-mono px-1 rounded bg-neutral-200 dark:bg-neutral-800">ROLE</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-4 pt-2.5 border-t border-brand-borderLight dark:border-brand-borderDark">
+              <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1 px-1 font-bold">Commands</div>
+              <div class="flex flex-wrap gap-1">
+                <button onclick="runQuickAction(1, '/users')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/users</button>
+                <button onclick="runQuickAction(1, '/rooms')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/rooms</button>
+                <button onclick="runQuickAction(1, '/history')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/history</button>
+                <button onclick="runQuickAction(1, '/stats')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/stats</button>
+                <button onclick="runQuickAction(1, '/help')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/help</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Session -->
+          <div class="pt-2 border-t border-brand-borderLight dark:border-brand-borderDark">
+            <button onclick="openAuthModal(1)" class="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-900 flex items-center justify-between font-medium">
+              <span>Account Settings</span>
+              <i class="fa-solid fa-gear text-[11px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Stream & Input -->
+        <div class="flex-1 flex flex-col bg-white dark:bg-brand-darker">
+          <!-- Room Subheader -->
+          <div class="px-4 py-1.5 bg-neutral-50 dark:bg-brand-dark border-b border-brand-borderLight dark:border-brand-borderDark flex items-center justify-between text-xs">
+            <span class="font-semibold text-neutral-700 dark:text-neutral-300" id="client1-room-title">#coding — Group Chat</span>
+            <span class="text-[11px] text-neutral-400 font-mono">Real-time socket broadcast</span>
+          </div>
+
+          <!-- Message Log -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-2 text-xs leading-relaxed" id="client1-messages"></div>
+
+          <!-- Quick Reactions Bar -->
+          <div class="px-3 py-1 border-t border-brand-borderLight dark:border-brand-borderDark flex items-center gap-2 bg-brand-lightSurface/50 dark:bg-brand-surface/40 text-xs">
+            <span class="text-[10px] font-mono text-neutral-400 uppercase font-semibold">React:</span>
+            <button onclick="insertEmoji(1, '👍')" class="hover:scale-125 transition">👍</button>
+            <button onclick="insertEmoji(1, '🔥')" class="hover:scale-125 transition">🔥</button>
+            <button onclick="insertEmoji(1, '🚀')" class="hover:scale-125 transition">🚀</button>
+            <button onclick="insertEmoji(1, '💡')" class="hover:scale-125 transition">💡</button>
+            <button onclick="insertEmoji(1, '❤️')" class="hover:scale-125 transition">❤️</button>
+            <button onclick="insertEmoji(1, '👀')" class="hover:scale-125 transition">👀</button>
+            <button onclick="insertEmoji(1, '✅')" class="hover:scale-125 transition">✅</button>
+          </div>
+
+          <!-- Input Bar -->
+          <form onsubmit="handleSend(event, 1)" class="p-3 bg-brand-lightSurface/70 dark:bg-brand-surface/70 border-t border-brand-borderLight dark:border-brand-borderDark flex items-center space-x-2">
+            <input type="text" id="client1-input" placeholder="Message #coding or type /msg Rahul <text>..."
+              class="flex-1 bg-white dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3.5 py-2 text-xs text-black dark:text-white placeholder-neutral-400 focus:outline-none focus:border-black dark:focus:border-white transition shadow-sm">
+            <button type="submit" class="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold hover:opacity-90 transition shadow">
+              Send
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== CLIENT PANEL 2 (Rahul) ==================== -->
+    <div class="client-panel flex flex-col bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl overflow-hidden shadow-sm" id="panel-2">
+      
+      <!-- Panel Header Bar -->
+      <div class="bg-brand-lightSurface/80 dark:bg-brand-surface/80 px-3.5 py-2 border-b border-brand-borderLight dark:border-brand-borderDark flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-6 h-6 rounded-full border border-black dark:border-white text-black dark:text-white flex items-center justify-center font-bold text-[10px]">
+            R
+          </div>
+          <div>
+            <span class="font-bold text-black dark:text-white" id="client2-label">Client 2 (Rahul)</span>
+            <span class="ml-1 text-[10px] font-mono text-neutral-500" id="client2-status-pill">• Online</span>
+          </div>
+          <span class="px-2 py-0.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-mono font-bold text-[10px]" id="client2-room-badge">#coding</span>
+        </div>
+
+        <!-- Utility Actions -->
+        <div class="flex items-center space-x-1">
+          <!-- Search filter input -->
+          <div class="relative">
+            <input type="text" id="client2-search" oninput="filterMessages(2)" placeholder="Search in room..." 
+              class="w-24 focus:w-36 transition-all bg-white dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded px-2 py-0.5 text-[11px] placeholder-neutral-400 focus:outline-none focus:border-black dark:focus:border-white">
+          </div>
+          <button onclick="openDirectMsgModal(2)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Direct Message (PM)">
+            <i class="fa-solid fa-paper-plane text-[11px]"></i>
+          </button>
+          <button onclick="exportChat(2)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Export transcript (.txt)">
+            <i class="fa-solid fa-download text-[11px]"></i>
+          </button>
+          <button onclick="clearChat(2)" class="p-1 px-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" title="Clear screen">
+            <i class="fa-solid fa-trash-can text-[11px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel Body (Sidebar + Message Stream) -->
+      <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <div class="w-44 bg-brand-lighter/70 dark:bg-brand-black/60 border-r border-brand-borderLight dark:border-brand-borderDark p-2.5 flex flex-col justify-between text-xs">
+          <div>
+            <!-- Rooms List -->
+            <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5 px-1 flex justify-between items-center font-bold">
+              <span>Rooms</span>
+              <button onclick="promptJoinRoom(2)" class="hover:text-black dark:hover:text-white" title="Join or Create Room">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+              </button>
+            </div>
+            <div class="space-y-1" id="client2-room-list">
+              <button onclick="switchRoom(2, 'general')" id="c2-btn-general" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># general</span>
+              </button>
+              <button onclick="switchRoom(2, 'coding')" id="c2-btn-coding" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-bold bg-black text-white dark:bg-white dark:text-black transition flex items-center justify-between shadow-sm">
+                <span># coding</span>
+                <i class="fa-solid fa-chevron-right text-[9px]"></i>
+              </button>
+              <button onclick="switchRoom(2, 'gaming')" id="c2-btn-gaming" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># gaming</span>
+              </button>
+              <button onclick="switchRoom(2, 'random')" id="c2-btn-random" class="w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between">
+                <span># random</span>
+              </button>
+            </div>
+
+            <!-- Direct Message / Members List -->
+            <div class="mt-4 pt-2.5 border-t border-brand-borderLight dark:border-brand-borderDark">
+              <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5 px-1 font-bold">Members</div>
+              <div class="space-y-1">
+                <button onclick="quickDm(2, 'Rishabh')" class="w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span class="font-medium">Rishabh</span>
+                  </div>
+                  <i class="fa-solid fa-comment-dots text-[10px] text-neutral-400"></i>
+                </button>
+                <button onclick="quickDm(2, 'admin')" class="w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                    <span class="font-medium">admin</span>
+                  </div>
+                  <span class="text-[9px] font-mono px-1 rounded bg-neutral-200 dark:bg-neutral-800">ROLE</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-4 pt-2.5 border-t border-brand-borderLight dark:border-brand-borderDark">
+              <div class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1 px-1 font-bold">Commands</div>
+              <div class="flex flex-wrap gap-1">
+                <button onclick="runQuickAction(2, '/users')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/users</button>
+                <button onclick="runQuickAction(2, '/rooms')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/rooms</button>
+                <button onclick="runQuickAction(2, '/history')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/history</button>
+                <button onclick="runQuickAction(2, '/stats')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/stats</button>
+                <button onclick="runQuickAction(2, '/help')" class="px-1.5 py-0.5 rounded bg-brand-lightSurface dark:bg-brand-surface text-[10px] font-mono text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white">/help</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Session -->
+          <div class="pt-2 border-t border-brand-borderLight dark:border-brand-borderDark">
+            <button onclick="openAuthModal(2)" class="w-full text-left px-2 py-1.5 rounded text-xs text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-900 flex items-center justify-between font-medium">
+              <span>Account Settings</span>
+              <i class="fa-solid fa-gear text-[11px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Stream & Input -->
+        <div class="flex-1 flex flex-col bg-white dark:bg-brand-darker">
+          <!-- Room Subheader -->
+          <div class="px-4 py-1.5 bg-neutral-50 dark:bg-brand-dark border-b border-brand-borderLight dark:border-brand-borderDark flex items-center justify-between text-xs">
+            <span class="font-semibold text-neutral-700 dark:text-neutral-300" id="client2-room-title">#coding — Group Chat</span>
+            <span class="text-[11px] text-neutral-400 font-mono">Real-time socket broadcast</span>
+          </div>
+
+          <!-- Message Log -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-2 text-xs leading-relaxed" id="client2-messages"></div>
+
+          <!-- Quick Reactions Bar -->
+          <div class="px-3 py-1 border-t border-brand-borderLight dark:border-brand-borderDark flex items-center gap-2 bg-brand-lightSurface/50 dark:bg-brand-surface/40 text-xs">
+            <span class="text-[10px] font-mono text-neutral-400 uppercase font-semibold">React:</span>
+            <button onclick="insertEmoji(2, '👍')" class="hover:scale-125 transition">👍</button>
+            <button onclick="insertEmoji(2, '🔥')" class="hover:scale-125 transition">🔥</button>
+            <button onclick="insertEmoji(2, '🚀')" class="hover:scale-125 transition">🚀</button>
+            <button onclick="insertEmoji(2, '💡')" class="hover:scale-125 transition">💡</button>
+            <button onclick="insertEmoji(2, '❤️')" class="hover:scale-125 transition">❤️</button>
+            <button onclick="insertEmoji(2, '👀')" class="hover:scale-125 transition">👀</button>
+            <button onclick="insertEmoji(2, '✅')" class="hover:scale-125 transition">✅</button>
+          </div>
+
+          <!-- Input Bar -->
+          <form onsubmit="handleSend(event, 2)" class="p-3 bg-brand-lightSurface/70 dark:bg-brand-surface/70 border-t border-brand-borderLight dark:border-brand-borderDark flex items-center space-x-2">
+            <input type="text" id="client2-input" placeholder="Message #coding or type /msg Rishabh <text>..."
+              class="flex-1 bg-white dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3.5 py-2 text-xs text-black dark:text-white placeholder-neutral-400 focus:outline-none focus:border-black dark:focus:border-white transition shadow-sm">
+            <button type="submit" class="px-4 py-2 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold hover:opacity-90 transition shadow">
+              Send
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Telemetry Modal -->
+  <div id="stats-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl w-full max-w-lg p-5 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-borderLight dark:border-brand-borderDark">
+        <h3 class="font-bold text-sm tracking-tight text-black dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-chart-line"></i> Server Telemetry & Statistics
+        </h3>
+        <button onclick="toggleStatsModal()" class="text-neutral-400 hover:text-black dark:hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <pre id="stats-content" class="mt-3 p-3 rounded-lg bg-neutral-100 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark font-mono-code text-[11px] text-neutral-800 dark:text-neutral-200 overflow-x-auto">Loading telemetry from C Chat Server...</pre>
+      <div class="mt-4 flex justify-end gap-2">
+        <button onclick="refreshStats()" class="px-3 py-1.5 rounded-lg border border-brand-borderLight dark:border-brand-borderDark hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium">Refresh</button>
+        <button onclick="toggleStatsModal()" class="px-3.5 py-1.5 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-medium">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direct Message Modal -->
+  <div id="dm-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl w-full max-w-md p-5 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-borderLight dark:border-brand-borderDark">
+        <h3 class="font-bold text-sm tracking-tight text-black dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-lock"></i> Direct Message (Private PM)
+        </h3>
+        <button onclick="closeDirectMsgModal()" class="text-neutral-400 hover:text-black dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="mt-3 space-y-3">
+        <div>
+          <label class="block text-[11px] font-mono uppercase text-neutral-500 mb-1 font-semibold">Recipient Username</label>
+          <input type="text" id="dm-recipient" placeholder="e.g. Rahul, Rishabh, admin" class="w-full bg-neutral-50 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-black dark:focus:border-white">
+        </div>
+        <div>
+          <label class="block text-[11px] font-mono uppercase text-neutral-500 mb-1 font-semibold">Private Message</label>
+          <input type="text" id="dm-body" placeholder="Write message..." class="w-full bg-neutral-50 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-black dark:focus:border-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="sendDirectMessage()" class="w-full py-2 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-bold shadow">Send Message</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Admin Broadcast Modal -->
+  <div id="broadcast-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl w-full max-w-md p-5 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-borderLight dark:border-brand-borderDark">
+        <h3 class="font-bold text-sm tracking-tight text-black dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-bullhorn"></i> Global Server Broadcast
+        </h3>
+        <button onclick="closeBroadcastModal()" class="text-neutral-400 hover:text-black dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="mt-3 space-y-3">
+        <p class="text-xs text-neutral-500">Transmits an immediate broadcast notice to every client across all chat rooms.</p>
+        <div>
+          <input type="text" id="broadcast-input" placeholder="e.g. Server maintenance in 10 minutes." class="w-full bg-neutral-50 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-black dark:focus:border-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="sendBroadcastAnnouncement()" class="w-full py-2 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-bold shadow">Send Global Notice</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authentication Modal -->
+  <div id="auth-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-brand-dark border border-brand-borderLight dark:border-brand-borderDark rounded-xl w-full max-w-md p-5 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-borderLight dark:border-brand-borderDark">
+        <h3 class="font-bold text-sm tracking-tight text-black dark:text-white" id="auth-modal-title">Switch Account</h3>
+        <button onclick="closeAuthModal()" class="text-neutral-400 hover:text-black dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="mt-3 space-y-3">
+        <div>
+          <label class="block text-[11px] font-mono uppercase text-neutral-500 mb-1 font-semibold">Username</label>
+          <input type="text" id="auth-username" class="w-full bg-neutral-50 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-black dark:focus:border-white">
+        </div>
+        <div>
+          <label class="block text-[11px] font-mono uppercase text-neutral-500 mb-1 font-semibold">Password</label>
+          <input type="password" id="auth-password" class="w-full bg-neutral-50 dark:bg-brand-black border border-brand-borderLight dark:border-brand-borderDark rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-black dark:focus:border-white">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="submitAuth('login')" class="flex-1 py-2 bg-black text-white dark:bg-white dark:text-black rounded-lg text-xs font-bold shadow">Log In</button>
+          <button onclick="submitAuth('register')" class="flex-1 py-2 border border-brand-borderLight dark:border-brand-borderDark rounded-lg text-xs font-bold">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LOGIC SCRIPT ==================== -->
+  <script>
+    const clients = {
+      1: { id: 1, name: 'Rishabh', room: 'coding', sessionId: null, sse: null, history: [] },
+      2: { id: 2, name: 'Rahul', room: 'coding', sessionId: null, sse: null, history: [] }
+    };
+    let isDualView = true;
+    let activeDmClient = 1;
+    let currentAuthClientId = 1;
+
+    // Theme Management (Light / Dark Mode)
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+    }
+
+    function toggleTheme() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+    }
+
+    function getTime() {
+      const d = new Date();
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      initTheme();
+      setInterval(measurePing, 5000);
+
+      // Initialize both clients
+      await initClientSession(1, 'Rishabh', 'mypass123');
+      await initClientSession(2, 'Rahul', 'pass456');
+    });
+
+    async function measurePing() {
+      const start = Date.now();
+      try {
+        const res = await fetch('/api/status');
+        if (res.ok) {
+          const latency = Date.now() - start;
+          document.getElementById('ping-text').textContent = `${Math.max(1, latency)} ms`;
+        }
+      } catch (e) {
+        document.getElementById('ping-text').textContent = `Local`;
+      }
+    }
+
+    async function initClientSession(clientNum, defaultUsername, defaultPassword) {
+      const client = clients[clientNum];
+      appendSystemMessage(clientNum, `Connecting to C Socket Server on 127.0.0.1:8080...`);
+
+      try {
+        const res = await fetch('/api/connect', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          client.sessionId = data.session_id;
+          const eventSource = new EventSource(`/api/events?session_id=${client.sessionId}`);
+          client.sse = eventSource;
+
+          eventSource.onmessage = (e) => {
+            try {
+              const payload = JSON.parse(e.data);
+              handleIncomingServerEvent(clientNum, payload);
+            } catch (err) {
+              console.error(err);
+            }
+          };
+        }
+      } catch (err) {
+        console.warn("Bridge connection note:", err);
+      }
+
+      // Perform clean authentication and room join
+      setTimeout(async () => {
+        await sendRawCommand(clientNum, `/register ${defaultUsername} ${defaultPassword}`);
+        await sendRawCommand(clientNum, `/login ${defaultUsername} ${defaultPassword}`);
+        await sendRawCommand(clientNum, `/join ${client.room}`);
+
+        // Greet in room
+        if (clientNum === 1) {
+          setTimeout(() => sendRawCommand(1, "Is everyone ready for the C project?"), 600);
+        } else if (clientNum === 2) {
+          setTimeout(() => sendRawCommand(2, "Yes, I am working on mine."), 1100);
+        }
+      }, 350);
+    }
+
+    function handleIncomingServerEvent(clientNum, payload) {
+      if (payload.type === 'message') {
+        parseAndRenderMessage(clientNum, payload.data);
+      } else if (payload.type === 'disconnect') {
+        appendSystemMessage(clientNum, "Session closed.");
+        document.getElementById(`client${clientNum}-status-pill`).textContent = "• Offline";
+      }
+    }
+
+    function parseAndRenderMessage(clientNum, rawText) {
+      clients[clientNum].history.push(rawText);
+      const feed = document.getElementById(`client${clientNum}-messages`);
+      const card = document.createElement('div');
+
+      if (rawText.startsWith('[SUCCESS] Welcome back,')) {
+        const match = rawText.match(/\[SUCCESS\] Welcome back, ([^!]+)! You joined #([^.]+)/);
+        if (match) {
+          clients[clientNum].name = match[1];
+          clients[clientNum].room = match[2];
+          updateRoomUI(clientNum, match[2]);
+        }
+        card.className = "p-2 rounded-lg bg-neutral-100 dark:bg-brand-surface border border-brand-borderLight dark:border-brand-borderDark font-mono-code text-[11px] text-neutral-800 dark:text-neutral-200";
+        card.innerHTML = `<i class="fa-solid fa-circle-check mr-1.5 text-neutral-900 dark:text-white"></i> ${escapeHtml(rawText)}`;
+      } else if (rawText.startsWith('[SUCCESS] Switched to room #')) {
+        const roomName = rawText.replace('[SUCCESS] Switched to room #', '').trim();
+        clients[clientNum].room = roomName;
+        updateRoomUI(clientNum, roomName);
+        card.className = "p-2 rounded-lg bg-neutral-100 dark:bg-brand-surface border border-brand-borderLight dark:border-brand-borderDark font-mono-code text-[11px] text-neutral-800 dark:text-neutral-200";
+        card.innerHTML = `<i class="fa-solid fa-arrow-right-arrow-left mr-1.5 text-neutral-900 dark:text-white"></i> ${escapeHtml(rawText)}`;
+      } else if (rawText.includes('[PM from') || rawText.includes('[PM to')) {
+        card.className = "p-2.5 rounded-lg border border-black dark:border-white bg-neutral-100 dark:bg-brand-surface shadow-sm";
+        card.innerHTML = `<div class="flex items-center gap-1.5 font-bold text-[11px] mb-0.5 text-black dark:text-white"><i class="fa-solid fa-lock text-[10px]"></i> DIRECT MESSAGE</div><div>${escapeHtml(rawText)}</div>`;
+      } else if (rawText.includes('[GLOBAL ANNOUNCEMENT')) {
+        card.className = "p-2.5 rounded-lg bg-black text-white dark:bg-white dark:text-black font-semibold tracking-wide text-xs shadow-md";
+        card.innerHTML = `<i class="fa-solid fa-bullhorn mr-1.5"></i> ${escapeHtml(rawText)}`;
+      } else if (rawText.startsWith('-->') || rawText.startsWith('<--')) {
+        card.className = "text-neutral-400 dark:text-neutral-500 italic py-0.5 text-[11px]";
+        card.innerHTML = `<i class="fa-solid fa-user-group text-[10px] mr-1"></i> ${escapeHtml(rawText)}`;
+      } else if (rawText.startsWith('===')) {
+        card.className = "p-3 rounded-lg bg-neutral-100 dark:bg-brand-surface border border-brand-borderLight dark:border-brand-borderDark whitespace-pre font-mono-code text-[11px]";
+        card.textContent = rawText;
+      } else {
+        // Standard user broadcast message
+        const isSelf = rawText.includes(clients[clientNum].name + ':');
+        card.className = `p-2 rounded-lg transition ${isSelf ? 'bg-neutral-100/90 dark:bg-brand-surface/90 border border-brand-borderLight dark:border-brand-borderDark' : 'hover:bg-neutral-50 dark:hover:bg-brand-surface/40'}`;
+        
+        // Extract sender and content if matching pattern [HH:MM] Name: Message
+        const match = rawText.match(/\[([^\]]+)\] ([^:]+): (.+)/);
+        if (match) {
+          const t = match[1];
+          const sender = match[2];
+          const text = match[3];
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-black dark:text-white flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-full bg-black text-white dark:bg-white dark:text-black flex items-center justify-center text-[9px] font-bold">${sender.charAt(0).toUpperCase()}</span>
+                ${escapeHtml(sender)}
+              </span>
+              <span class="text-[10px] font-mono text-neutral-400">${escapeHtml(t)}</span>
+            </div>
+            <div class="text-neutral-800 dark:text-neutral-200 pl-5 leading-normal">${escapeHtml(text)}</div>
+          `;
+        } else {
+          card.textContent = rawText;
+        }
+      }
+
+      card.dataset.raw = rawText;
+      feed.appendChild(card);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function appendSystemMessage(clientNum, text) {
+      clients[clientNum].history.push(text);
+      const feed = document.getElementById(`client${clientNum}-messages`);
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "text-neutral-400 dark:text-neutral-500 italic text-[11px] py-0.5";
+      msgDiv.textContent = `[System] ${text}`;
+      msgDiv.dataset.raw = text;
+      feed.appendChild(msgDiv);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    async function sendRawCommand(clientNum, message) {
+      const client = clients[clientNum];
+      
+      // Send to real C server over web bridge
+      if (client.sessionId) {
+        try {
+          await fetch('/api/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: client.sessionId, message: message })
+          });
+        } catch (e) {
+          console.error("Socket send failed:", e);
+        }
+      }
+
+      // Dual-client visual simulator synchronization
+      if (!message.startsWith('/')) {
+        const timeStr = getTime();
+        const formatted = `[${timeStr}] ${client.name}: ${message}`;
+        parseAndRenderMessage(clientNum, formatted);
+        
+        // Also broadcast to other client if in same room!
+        const otherNum = (clientNum === 1) ? 2 : 1;
+        if (clients[clientNum].room === clients[otherNum].room) {
+          parseAndRenderMessage(otherNum, formatted);
+        }
+      } else if (message.startsWith('/msg ')) {
+        const parts = message.split(' ');
+        const target = parts[1];
+        const body = parts.slice(2).join(' ');
+        const timeStr = getTime();
+
+        parseAndRenderMessage(clientNum, `[${timeStr}] [PM to ${target}]: ${body}`);
+        const otherNum = (clientNum === 1) ? 2 : 1;
+        if (clients[otherNum].name.toLowerCase() === target.toLowerCase()) {
+          parseAndRenderMessage(otherNum, `[${timeStr}] [PM from ${client.name}]: ${body}`);
+        }
+      }
+    }
+
+    async function handleSend(e, clientNum) {
+      e.preventDefault();
+      const input = document.getElementById(`client${clientNum}-input`);
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      await sendRawCommand(clientNum, text);
+    }
+
+    function insertEmoji(clientNum, emoji) {
+      const input = document.getElementById(`client${clientNum}-input`);
+      input.value += emoji + ' ';
+      input.focus();
+    }
+
+    function quickDm(clientNum, targetUser) {
+      const input = document.getElementById(`client${clientNum}-input`);
+      input.value = `/msg ${targetUser} `;
+      input.focus();
+    }
+
+    function runQuickAction(clientNum, cmd) {
+      sendRawCommand(clientNum, cmd);
+    }
+
+    function switchRoom(clientNum, room) {
+      clients[clientNum].room = room;
+      updateRoomUI(clientNum, room);
+      sendRawCommand(clientNum, `/join ${room}`);
+    }
+
+    function updateRoomUI(clientNum, room) {
+      // Update room badge & subheader
+      document.getElementById(`client${clientNum}-room-badge`).textContent = `#${room}`;
+      document.getElementById(`client${clientNum}-room-title`).textContent = `#${room} — Group Chat`;
+      document.getElementById(`client${clientNum}-input`).placeholder = `Message #${room} or type /msg, /users...`;
+
+      // Update room button states in sidebar
+      const rooms = ['general', 'coding', 'gaming', 'random'];
+      rooms.forEach(r => {
+        const btn = document.getElementById(`c${clientNum}-btn-${r}`);
+        if (btn) {
+          if (r.toLowerCase() === room.toLowerCase()) {
+            btn.className = "w-full text-left px-2.5 py-1.5 rounded-md text-xs font-bold bg-black text-white dark:bg-white dark:text-black transition flex items-center justify-between shadow-sm";
+            btn.innerHTML = `<span># ${r}</span><i class="fa-solid fa-chevron-right text-[9px]"></i>`;
+          } else {
+            btn.className = "w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-900 transition flex items-center justify-between";
+            btn.innerHTML = `<span># ${r}</span>`;
+          }
+        }
+      });
+    }
+
+    function promptJoinRoom(clientNum) {
+      const room = prompt("Enter room name to join or create (e.g. general, coding, gaming, random, projects):");
+      if (room && room.trim()) {
+        switchRoom(clientNum, room.trim());
+      }
+    }
+
+    function filterMessages(clientNum) {
+      const query = document.getElementById(`client${clientNum}-search`).value.toLowerCase();
+      const feed = document.getElementById(`client${clientNum}-messages`);
+      const nodes = feed.children;
+
+      for (let i = 0; i < nodes.length; i++) {
+        const text = nodes[i].textContent.toLowerCase();
+        if (!query || text.includes(query)) {
+          nodes[i].classList.remove('hidden');
+        } else {
+          nodes[i].classList.add('hidden');
+        }
+      }
+    }
+
+    function exportChat(clientNum) {
+      const client = clients[clientNum];
+      const content = `CHAT SERVER SIMULATOR USING C\nClient: ${client.name}\nRoom: #${client.room}\nTimestamp: ${new Date().toLocaleString()}\n========================================\n\n` + client.history.join('\n');
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat_${client.name}_${client.room}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearChat(clientNum) {
+      if (confirm("Clear local chat feed?")) {
+        document.getElementById(`client${clientNum}-messages`).innerHTML = '';
+      }
+    }
+
+    function toggleDualView() {
+      isDualView = !isDualView;
+      const container = document.getElementById('clients-container');
+      const panel2 = document.getElementById('panel-2');
+      const text = document.getElementById('split-btn-text');
+
+      if (isDualView) {
+        container.className = "flex-1 p-3 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-hidden";
+        panel2.classList.remove('hidden');
+        text.textContent = "Single View";
+      } else {
+        container.className = "flex-1 p-3 grid grid-cols-1 gap-3 overflow-hidden";
+        panel2.classList.add('hidden');
+        text.textContent = "Dual View";
+      }
+    }
+
+    // Modal Handlers
+    function toggleStatsModal() {
+      const modal = document.getElementById('stats-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        refreshStats();
+      }
+    }
+
+    function refreshStats() {
+      const content = document.getElementById('stats-content');
+      content.textContent = "Querying live server telemetry from C socket...";
+      sendRawCommand(1, '/stats');
+      setTimeout(() => {
+        content.textContent = "Telemetry requested. Check Client 1 terminal logs for full statistics report.";
+      }, 400);
+    }
+
+    function openDirectMsgModal(clientNum) {
+      activeDmClient = clientNum;
+      document.getElementById('dm-recipient').value = (clientNum === 1) ? 'Rahul' : 'Rishabh';
+      document.getElementById('dm-body').value = '';
+      document.getElementById('dm-modal').classList.remove('hidden');
+      document.getElementById('dm-body').focus();
+    }
+
+    function closeDirectMsgModal() {
+      document.getElementById('dm-modal').classList.add('hidden');
+    }
+
+    async function sendDirectMessage() {
+      const rec = document.getElementById('dm-recipient').value.trim();
+      const body = document.getElementById('dm-body').value.trim();
+      if (!rec || !body) return;
+      closeDirectMsgModal();
+      await sendRawCommand(activeDmClient, `/msg ${rec} ${body}`);
+    }
+
+    function openBroadcastModal() {
+      document.getElementById('broadcast-input').value = '';
+      document.getElementById('broadcast-modal').classList.remove('hidden');
+      document.getElementById('broadcast-input').focus();
+    }
+
+    function closeBroadcastModal() {
+      document.getElementById('broadcast-modal').classList.add('hidden');
+    }
+
+    async function sendBroadcastAnnouncement() {
+      const msg = document.getElementById('broadcast-input').value.trim();
+      if (!msg) return;
+      closeBroadcastModal();
+      await sendRawCommand(1, `/broadcast ${msg}`);
+    }
+
+    function openAuthModal(clientNum) {
+      currentAuthClientId = clientNum;
+      document.getElementById('auth-username').value = clients[clientNum].name;
+      document.getElementById('auth-password').value = '';
+      document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    async function submitAuth(type) {
+      const u = document.getElementById('auth-username').value.trim();
+      const p = document.getElementById('auth-password').value.trim();
+      if (!u || !p) return;
+      closeAuthModal();
+      if (type === 'register') {
+        await sendRawCommand(currentAuthClientId, `/register ${u} ${p}`);
+      }
+      await sendRawCommand(currentAuthClientId, `/login ${u} ${p}`);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
